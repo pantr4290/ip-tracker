@@ -1,13 +1,16 @@
 from flask import Flask, request
 import requests
+import os
 
 app = Flask(__name__)
 
 @app.route("/")
 def home():
 
-    # Get visitor IP
+    # Get real visitor IP (handles proxies like Render)
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if ip:
+        ip = ip.split(",")[0]
 
     # Local testing case
     if ip == "127.0.0.1":
@@ -19,27 +22,35 @@ def home():
     # IP Geolocation API
     api_url = f"http://ip-api.com/json/{ip}"
 
-    response = requests.get(api_url)
-    data = response.json()
+    try:
+        response = requests.get(api_url, timeout=5)
+        data = response.json()
+    except:
+        data = {}
 
-    city = data.get("city")
-    region = data.get("regionName")
-    country = data.get("country")
-    isp = data.get("isp")
+    city = data.get("city", "Unknown")
+    region = data.get("regionName", "Unknown")
+    country = data.get("country", "Unknown")
+    isp = data.get("isp", "Unknown")
 
+    # Log visitor in console (Render logs)
     print("New Visitor")
     print("IP:", ip)
     print("City:", city)
     print("Region:", region)
     print("Country:", country)
+    print("----------------------")
 
     return f"""
     <h1>Welcome</h1>
-    <p>Your approximate city is: {city}</p>
-    <p>Region: {region}</p>
-    <p>Country: {country}</p>
-    <p>ISP: {isp}</p>
+    <p><b>IP:</b> {ip}</p>
+    <p><b>City:</b> {city}</p>
+    <p><b>Region:</b> {region}</p>
+    <p><b>Country:</b> {country}</p>
+    <p><b>ISP:</b> {isp}</p>
     """
 
+# Render requires dynamic port
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
